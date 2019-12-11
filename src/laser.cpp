@@ -1,0 +1,185 @@
+#include "laser.h"
+#include <sys/socket.h>
+#include <arpa/inet.h> //inet_addr
+#include <unistd.h>    //write
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <chrono>
+#include <thread>
+#include <mutex>
+#include <math.h>
+
+// 5 down, 6 to the right
+
+#define IP "169.254.74.191"
+#define PORT 2112
+
+laser::laser(){
+    mtx = new std::mutex;
+
+    //Create socket
+    sock = socket(AF_INET, SOCK_STREAM, 0);
+    if(sock < 0){
+        printf("Socket bind failed\n");
+        exit(0);
+    }
+     
+    server.sin_addr.s_addr = inet_addr(IP);
+    server.sin_family = AF_INET;
+    server.sin_port = htons(PORT);
+ 
+    /*//Connect to remote server
+    if(connect(sock, (struct sockaddr *) &server, sizeof(server)) < 0){
+        printf("Connection to lidar failed\n");
+        exit(0);
+    }
+
+    std::thread laserthread(&laser::main, this);
+    laserthread.detach();*/
+}
+
+ 
+void laser::main()
+{    
+    start_scan();
+    calc_discard_values(300);
+
+    recv(sock, tcp_data, 233, 0);
+
+    int interval = 20;
+    auto time_interval = std::chrono::milliseconds(interval);
+    auto time = std::chrono::steady_clock::now();
+
+    while(1){
+        time += time_interval;
+        recv(sock, tcp_data, 233, 0);
+        read_data();
+        shiftMap();
+
+        /*for(int i = 0; i < 4; i++){
+            for(int j = 0; j < 15; j++){
+                printf("%12d   ", dist[i*15 + j]);
+            } printf("\n");
+        }
+        printf("\n\n");*/
+
+        std::this_thread::sleep_until(time);
+    }
+
+}
+
+void laser::start_scan(){
+    //char out[] = {0x02, 0x73, 0x45, 0x4E, 0x20, 0x4C, 0x4D, 0x44, 0x73, 0x63, 0x61, 0x6E, 0x64, 0x61, 0x74, 0x61, 0x20, 0x31, 0x03};
+    char out[] = {0x02, 0x02, 0x02, 0x02, 0x00, 0x00, 0x00, 0x11, 0x73, 0x45, 0x4E, 0x20, 
+    0x4C, 0x4D, 0x44, 0x73, 0x63, 0x61, 0x6E, 0x64, 0x61, 0x74, 0x61, 0x20, 0x01, 0x33}; 
+    write(sock, out, sizeof(out) / sizeof(out[0]));
+}
+
+void laser::stop_scan(){
+    char out[] = {0x02, 0x02, 0x02, 0x02, 0x00, 0x00, 0x00, 0x11, 0x73, 0x45, 0x4E, 0x20, 
+    0x4C, 0x4D, 0x44, 0x73, 0x63, 0x61, 0x6E, 0x64, 0x61, 0x74, 0x61, 0x20, 0x00, 0x33}; 
+
+    write(sock, out, sizeof(out) / sizeof(out[0]));
+}
+
+void laser::read_data(){
+    int data_start = 85;
+
+    for(int i = 0; i < LIDAR_RANGE; i++){
+        dist[i] = (tcp_data[data_start + i*2] << 8) + tcp_data[data_start + i*2+1];
+    }
+}
+
+
+void laser::write_pos(pos_lidar pos){
+    std::lock_guard<std::mutex> lock(*mtx);
+    pl = pos;
+}
+
+void laser::calc_discard_values(int width){
+    float degtorad = 180.0 / M_PI;
+
+    for(int i = 0; i < LIDAR_RANGE; i++){
+        dist_discard[i] = width / sin((i - 30) * degtorad);
+    }
+}
+
+void laser::shiftMap(){
+    mapIdx = !mapIdx;
+
+    static float formerX = 0, formerY = 0;
+
+    mtx->lock();
+
+    float cz = cos(-pl.rz);
+    float sz = sin(-pl.rz);
+
+    float x = formerX - pl.x;
+    float y = formerY - pl.y;
+
+    mtx->unlock();
+
+    for(int w = 0; w < MAP_W; w++){
+        for(int h = 0; h < MAP_H; h++){
+            transformPoint(w, h, cz, sz, x, y);
+        }
+    }
+
+}
+
+void laser::transformPoint(int w, int h, float cz, float sz, float x, float y){
+    
+}
+
+void point::write(float x, float y, float z){
+        if(!set){
+            set = 1;
+            x0 = x1 = x;
+            y0 = y1 = y;
+            z0 = z1 = z;
+            dz = 0;
+        } else {
+            if(z < z0){
+                x0 = x;
+                y0 = y;
+                z0 = z;
+                dz = z1 - z0;
+                return; 
+            }
+            if(z > z1){
+                x1 = x;
+                y1 = y;
+                z1 = z;
+                dz = z1 - z0;
+                return; 
+            }
+        }
+    }
+
+
+
+
+
+
+
+
+
+
+/*void laser::find_obstacle(){
+    obsDist = 0;
+
+    int oldIdx = (buffIdx + 1 < OBS_BUFF ? buffIdx + 1 : 0);
+
+    for(int i = 0; i < LIDAR_RANGE; i++){
+        if(dist[i][buffIdx] > dist_discard[i]){
+            continue;
+        }
+
+        if((dist[i][buffIdx] - dist[i][oldIdx]) > 50){
+            
+        }
+    }
+
+}*/
+
