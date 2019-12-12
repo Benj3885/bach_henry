@@ -43,7 +43,7 @@ laser::laser(){
 void laser::main()
 {    
     start_scan();
-    calc_discard_values(300);
+    calc_init_values(250);
 
     recv(sock, tcp_data, 233, 0);
 
@@ -56,6 +56,7 @@ void laser::main()
         recv(sock, tcp_data, 233, 0);
         read_data();
         shiftMap();
+        add_data_to_map();
 
         /*for(int i = 0; i < 4; i++){
             for(int j = 0; j < 15; j++){
@@ -70,9 +71,9 @@ void laser::main()
 }
 
 void laser::start_scan(){
-    //char out[] = {0x02, 0x73, 0x45, 0x4E, 0x20, 0x4C, 0x4D, 0x44, 0x73, 0x63, 0x61, 0x6E, 0x64, 0x61, 0x74, 0x61, 0x20, 0x31, 0x03};
     char out[] = {0x02, 0x02, 0x02, 0x02, 0x00, 0x00, 0x00, 0x11, 0x73, 0x45, 0x4E, 0x20, 
     0x4C, 0x4D, 0x44, 0x73, 0x63, 0x61, 0x6E, 0x64, 0x61, 0x74, 0x61, 0x20, 0x01, 0x33}; 
+    
     write(sock, out, sizeof(out) / sizeof(out[0]));
 }
 
@@ -97,11 +98,15 @@ void laser::write_pos(pos_lidar pos){
     pl = pos;
 }
 
-void laser::calc_discard_values(int width){
+void laser::calc_init_values(int width){
     float degtorad = 180.0 / M_PI;
+
+    dist_cos_tilt = cos(9.94 * degtorad);
 
     for(int i = 0; i < LIDAR_RANGE; i++){
         dist_discard[i] = width / sin((i - 30) * degtorad);
+        dist_cos_angles[i] = cos((i - 30) * degtorad);
+        dist_sin_angles[i] = sin((i - 30) * degtorad);
     }
 }
 
@@ -122,41 +127,74 @@ void laser::shiftMap(){
 
     for(int w = 0; w < MAP_W; w++){
         for(int h = 0; h < MAP_H; h++){
-            transformPoint(w, h, cz, sz, x, y);
+            map[mapIdx][w][h].set = 0;
         }
     }
 
+    for(int w = 0; w < MAP_W; w++){
+        for(int h = 0; h < MAP_H; h++){
+            if(map[!mapIdx][w][h].set){
+                transformPoint(w, h, cz, sz, x, y);
+            }
+        }
+    }
 }
 
 void laser::transformPoint(int w, int h, float cz, float sz, float x, float y){
-    
+    float tx, ty;
+    int ix, iy;
+
+    tx = map[!mapIdx][w][h].x0 * cz - map[!mapIdx][w][h].y0 * sz + x;
+    ty = map[!mapIdx][w][h].x0 * sz + map[!mapIdx][w][h].y0 * cz + y;
+
+    if(tx > -250 && tx < 250 && ty < 1500 && ty > 0){
+        ix = (int)((tx + 25) / 50);
+        iy = (int)((ty + (ty > 0 ? 25 : -25)) / 50) + 25;
+
+        map[mapIdx][ix][iy].write(tx, ty, map[mapIdx][w][h].z0);        
+    }
+
+    if(map[mapIdx][w][h].dz != 0){
+        tx = map[!mapIdx][w][h].x1 * cz - map[!mapIdx][w][h].y1 * sz + x;
+        ty = map[!mapIdx][w][h].x1 * sz + map[!mapIdx][w][h].y1 * cz + y;
+
+        if(tx > -250 && tx < 250 && ty < 1500 && ty > 0){
+            ix = (int)((tx + 25) / 50);
+            iy = (int)((ty + (ty > 0 ? 25 : -25)) / 50) + 25;
+
+            map[mapIdx][ix][iy].write(tx, ty, map[mapIdx][w][h].z1);        
+        }
+    }
 }
 
 void point::write(float x, float y, float z){
-        if(!set){
-            set = 1;
-            x0 = x1 = x;
-            y0 = y1 = y;
-            z0 = z1 = z;
-            dz = 0;
-        } else {
-            if(z < z0){
-                x0 = x;
-                y0 = y;
-                z0 = z;
-                dz = z1 - z0;
-                return; 
-            }
-            if(z > z1){
-                x1 = x;
-                y1 = y;
-                z1 = z;
-                dz = z1 - z0;
-                return; 
-            }
+    if(!set){
+        set = 1;
+        x0 = x1 = x;
+        y0 = y1 = y;
+        z0 = z1 = z;
+        dz = 0;
+    } else {
+        if(z < z0){
+            x0 = x;
+            y0 = y;
+            z0 = z;
+            dz = z1 - z0;
+            return; 
+        }
+        if(z > z1){
+            x1 = x;
+            y1 = y;
+            z1 = z;
+            dz = z1 - z0;
+            return; 
         }
     }
+}
 
+void laser::add_data_to_map(){
+
+}
 
 
 

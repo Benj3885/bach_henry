@@ -14,9 +14,9 @@ struct pos_lidar{
 };
 
 struct point{
-    bool set;
-    float x0, x1, y0, y1, z0, z1;
-    float dz;
+    bool set = 0;
+    float x0 = 0, x1 = 0, y0 = 0, y1 = 0, z0 = 0, z1 = 0;
+    float dz = 0;
 
     void write(float x, float y, float z);
 };
@@ -28,6 +28,9 @@ struct laser{
 
     bool mapIdx = 0;
     unsigned short int dist[LIDAR_RANGE];
+    float dist_cos_angles[LIDAR_RANGE];
+    float dist_sin_angles[LIDAR_RANGE];
+    float dist_cos_tilt;
     point map[2][MAP_W][MAP_H];
     unsigned short int dist_discard[LIDAR_RANGE];
     uint8_t tcp_data[233];
@@ -50,8 +53,9 @@ struct laser{
     pos_lidar read_pos();
 
     void shiftMap();
-    void calc_discard_values(int width);
+    void calc_init_values(int width);
     void transformPoint(int w, int h, float cz, float sz, float x, float y);
+    void add_data_to_map();
 };
 
 #endif
