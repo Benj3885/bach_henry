@@ -169,7 +169,7 @@ void imu::setup_imu(){
 
 
     buffer[0] = 29; // Accel DLPF
-    buffer[1] = 5;
+    buffer[1] = 6;
     length = 2;
     if(write(fd, buffer, length) != length){
         printf("Failed to write to the i2c bus.\n");
