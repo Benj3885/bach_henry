@@ -13,6 +13,7 @@ out_data od;
 in_state is;
 move_para mp;
 pos_lidar pl;
+obstacle obs;
 
 void decide_all(pi_comm *comm, imu *im, laser *l, controller *cont);
 
@@ -88,9 +89,11 @@ void decide_all(pi_comm *comm, imu *im, laser *l, controller *cont){
     pl.rz = od.id.rz.f;
 
     l->write_pos(pl);
+    obs = l->read_obs();
 
     od.os.speed = is.speed;
     od.os.gait = is.gait;
+    od.os.obstacle = obs.flag;
 
     comm->write_od(&od);
 }

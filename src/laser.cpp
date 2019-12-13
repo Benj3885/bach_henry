@@ -16,7 +16,8 @@
 #define PORT 2112
 
 laser::laser(){
-    mtx = new std::mutex;
+    pos_mtx = new std::mutex;
+    obs_mtx = new std::mutex;
 
     //Create socket
     sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -55,8 +56,7 @@ void laser::main()
         time += time_interval;
         recv(sock, tcp_data, 233, 0);
         read_data();
-        shiftMap();
-        add_data_to_map();
+        sim_obs_det();
 
         /*for(int i = 0; i < 4; i++){
             for(int j = 0; j < 15; j++){
@@ -94,19 +94,22 @@ void laser::read_data(){
 
 
 void laser::write_pos(pos_lidar pos){
-    std::lock_guard<std::mutex> lock(*mtx);
+    std::lock_guard<std::mutex> lock(*pos_mtx);
     pl = pos;
 }
 
 void laser::calc_init_values(int width){
-    float degtorad = 180.0 / M_PI;
+    double degtorad = 180.0 / M_PI;
 
-    dist_cos_tilt = cos(9.94 * degtorad);
+    dist_cos_tilt = cos((90 - 9.94) * degtorad);
+    dist_sin_tilt = sin((90 - 9.94) * degtorad);
 
     for(int i = 0; i < LIDAR_RANGE; i++){
         dist_discard[i] = width / sin((i - 30) * degtorad);
         dist_cos_angles[i] = cos((i - 30) * degtorad);
         dist_sin_angles[i] = sin((i - 30) * degtorad);
+        dist_sim_const[i] = dist_sin_tilt * dist_cos_angles[i];
+        dist_discard_no_obs[i] = 214 / (dist_cos_angles[i] * dist_cos_tilt);
     }
 }
 
@@ -115,7 +118,7 @@ void laser::shiftMap(){
 
     static float formerX = 0, formerY = 0;
 
-    mtx->lock();
+    pos_mtx->lock();
 
     float cz = cos(-pl.rz);
     float sz = sin(-pl.rz);
@@ -123,7 +126,7 @@ void laser::shiftMap(){
     float x = formerX - pl.x;
     float y = formerY - pl.y;
 
-    mtx->unlock();
+    pos_mtx->unlock();
 
     for(int w = 0; w < MAP_W; w++){
         for(int h = 0; h < MAP_H; h++){
@@ -160,7 +163,7 @@ void laser::transformPoint(int w, int h, float cz, float sz, float x, float y){
 
         if(tx > -250 && tx < 250 && ty < 1500 && ty > 0){
             ix = (int)((tx + 25) / 50);
-            iy = (int)((ty + (ty > 0 ? 25 : -25)) / 50) + 25;
+            iy = (int)((ty + (ty > 0 ? 25 : -25)) / 50) + 5;
 
             map[mapIdx][ix][iy].write(tx, ty, map[mapIdx][w][h].z1);        
         }
@@ -193,13 +196,83 @@ void point::write(float x, float y, float z){
 }
 
 void laser::add_data_to_map(){
+    int ix, iy;
+    float x, y, z;
+
+    for(int i = 0; i < LIDAR_RANGE; i++){
+        if(dist[i] > dist_discard[i]){
+            continue;
+        }
+
+        x = dist[i] * dist_sin_tilt * dist_cos_angles[i];
+        y = dist[i] * dist_sin_tilt * dist_sin_angles[i];
+        z = dist[i] * dist_cos_tilt - Lh;
+
+        ix = (int)((x + 25) / 50);
+        iy = (int)((y + (y > 0 ? 25 : -25)) / 50) + 5;
+
+        map[mapIdx][ix][iy].write(x, y, z);
+    }
 
 }
 
+void laser::check_obstacle(){
+    obs.flag = 0;
+
+    for(int i = 0; i < MAP_W; i++){
+        scan_col(i);
+    }
+}
+
+void laser::scan_col(int c){
+    float accZ = 0;
+
+    float lowZ = 0, highZ = 0;
+    float diffZThres = 2.5;
+
+    int pointCount = 0;
+    int points[MAP_H];
+
+    for(int i = 0; i < MAP_H; i++){
+        if(map[mapIdx][i][c].set){
+            points[pointCount] = i;
+            pointCount++;
+        }
+    }
 
 
+    for(int i = 0; i < pointCount; i++){
+        if(!map[mapIdx][points[i]][c].dz){
+            lowZ = map[mapIdx][points[i]][c].z0;
+            
+        }
+        
+    }
+}
 
+void laser::sim_obs_det(){
+    obs_mtx->lock();
 
+    obs.flag = 0;
+    obs.length = 0;
+    float length;
+
+    for(int i = 0; i < LIDAR_RANGE; i++){
+        if(dist[i] < dist_discard[i] && dist[i] < dist_discard_no_obs[i]){
+            length = dist[i] * dist_sim_const[i];
+            if(length > obs.length){
+                obs.length = length;
+            }
+        }
+    }
+
+    obs_mtx->unlock();
+}
+
+obstacle laser::read_obs(){
+    std::lock_guard<std::mutex> lock(*obs_mtx);
+    return obs;
+}
 
 
 

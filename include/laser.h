@@ -21,6 +21,11 @@ struct point{
     void write(float x, float y, float z);
 };
 
+struct obstacle{
+    bool flag = 0;
+    float length;
+};
+
 struct laser{
     int sock;
     struct sockaddr_in server;
@@ -30,14 +35,17 @@ struct laser{
     unsigned short int dist[LIDAR_RANGE];
     float dist_cos_angles[LIDAR_RANGE];
     float dist_sin_angles[LIDAR_RANGE];
-    float dist_cos_tilt;
+    float dist_sim_const[LIDAR_RANGE];
+    float dist_cos_tilt, dist_sin_tilt;
+    float Lh = 26.4; // FIX
+    
     point map[2][MAP_W][MAP_H];
     unsigned short int dist_discard[LIDAR_RANGE];
+    unsigned short int dist_discard_no_obs[LIDAR_RANGE];
     uint8_t tcp_data[233];
+    obstacle obs;
 
-    short int obsDist = 0;
-
-    std::mutex *mtx;
+    std::mutex *pos_mtx, *obs_mtx;
 
     pos_lidar pl;
 
@@ -56,6 +64,10 @@ struct laser{
     void calc_init_values(int width);
     void transformPoint(int w, int h, float cz, float sz, float x, float y);
     void add_data_to_map();
+    void check_obstacle();
+    void scan_col(int c);
+    void sim_obs_det();
+    obstacle read_obs();
 };
 
 #endif
