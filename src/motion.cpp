@@ -27,7 +27,6 @@ imu::imu(){
 		exit(0);
 	}
     setup_imu();
-    calibrate();
 
     std::thread imuthread(&imu::main, this);
     imuthread.detach();
@@ -36,8 +35,11 @@ imu::imu(){
 void imu::main(){
     int interval = 1000 / IMU_RATE;
     period = interval / 1000.f;
+
     auto time_interval = std::chrono::milliseconds(interval);
     auto time = std::chrono::steady_clock::now();
+
+    calibrate();
     
     while(1){
         time += time_interval;
@@ -51,7 +53,7 @@ void imu::main(){
 
 void imu::calibrate(){
     int interval = 1000 / IMU_RATE;
-    int samples = 500;
+    int samples = IMU_RATE * 2;
     period = interval / 1000.f;
     auto time_interval = std::chrono::milliseconds(interval);
     auto time = std::chrono::steady_clock::now();
@@ -106,7 +108,7 @@ void imu::save_imu_data(){
         filtVal[i] = tempVal;
     }
 
-    imu_in.ax = filtVal[0];
+    imu_in.ax = -filtVal[0];
     imu_in.ay = filtVal[1];
     imu_in.az = filtVal[2];
 
@@ -124,8 +126,8 @@ void imu::integrate_pos(){
 
     float refax, refay;
 
-    refax = imu_in.ax * cos(pos.rz.f) - imu_in.ay * sin(pos.rz.f);
-    refay = imu_in.ay * sin(pos.rz.f) + imu_in.ay * cos(pos.rz.f);
+    refax = imu_in.ax;// * cos(pos.rz.f) - imu_in.ay * sin(pos.rz.f);
+    refay = imu_in.ay;// * sin(pos.rz.f) + imu_in.ay * cos(pos.rz.f);
 
     pos.vx.f += refax * period;
     pos.vy.f += refay * period;
@@ -133,7 +135,7 @@ void imu::integrate_pos(){
     pos.x.f += pos.vx.f * period;
     pos.y.f += pos.vy.f * period;
 
-    printf("%10f      %10f      %10f\n", refax, refay, pos.rz.f);
+    printf("%10f      %10f      %10f\n", pos.x.f, pos.y.f, pos.rz.f);
 
     //printf("%10f      %10f\n", imu_in.gy, pos.ry.f);
     /*printf("%10f      %10f      %10f\n", imu_in.ax, pos.vx.f, pos.x.f);
@@ -161,7 +163,7 @@ void imu::reset_vel(){
 
 void imu::setup_imu(){
     buffer[0] = 26; // Gyro DLPF
-    buffer[1] = 1;
+    buffer[1] = 4;
     length = 2;
     if(write(fd, buffer, length) != length){
         printf("Failed to write to the i2c bus.\n");
@@ -169,7 +171,14 @@ void imu::setup_imu(){
 
 
     buffer[0] = 29; // Accel DLPF
-    buffer[1] = 6;
+    buffer[1] = 4;
+    length = 2;
+    if(write(fd, buffer, length) != length){
+        printf("Failed to write to the i2c bus.\n");
+    }
+
+    buffer[0] = 25; // Sample rate divider
+    buffer[1] = 1;
     length = 2;
     if(write(fd, buffer, length) != length){
         printf("Failed to write to the i2c bus.\n");
