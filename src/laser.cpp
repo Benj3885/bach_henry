@@ -225,7 +225,7 @@ void laser::check_obstacle(){
 }
 
 void laser::scan_col(int c){
-    float accZ = 0;
+    /*float accZ = 0;
 
     float lowZ = 0, highZ = 0;
     float diffZThres = 2.5;
@@ -247,7 +247,7 @@ void laser::scan_col(int c){
             
         }
         
-    }
+    }*/
 }
 
 void laser::sim_obs_det(){
