@@ -129,8 +129,37 @@ void imu::integrate_pos(){
     refax = imu_in.ax;// * cos(pos.rz.f) - imu_in.ay * sin(pos.rz.f);
     refay = imu_in.ay;// * sin(pos.rz.f) + imu_in.ay * cos(pos.rz.f);
 
-    pos.vx.f += refax * period;
-    pos.vy.f += refay * period;
+
+    // EXPERIMENTAL HIGH-PASS FILTER
+    static double a[2] = {0.999372075922984, -0.999372075922984};
+    static double b[2] = {1, -0.998744151845968};
+
+    static bool idx = 0;
+    static float inFilx[2] = {0};
+    static float inFily[2] = {0};
+    static float outFilx = 0;
+    static float outFily = 0;
+
+    float outpx = 0;
+    float outpy = 0;
+
+    inFilx[idx] = refax * period;
+    inFily[idx] = refax * period;
+
+    outpx = outpx + inFilx[idx] * a[0];
+    outpy = outpy + inFily[idx] * a[0];
+
+    idx = !idx;
+
+    outpx = outpx + inFilx[idx] * a[1] - outFilx * b[1];
+    outpy = outpy + inFily[idx] * a[1] - outFily * b[1];
+
+    outFilx = outpx;
+    outFily = outpy;
+    // EXPERIMENTAL HIGH-PASS FILTER
+
+    pos.vx.f = outpx;
+    pos.vy.f = outpy;
 
     pos.x.f += pos.vx.f * period;
     pos.y.f += pos.vy.f * period;
