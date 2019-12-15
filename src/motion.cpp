@@ -108,7 +108,7 @@ void imu::save_imu_data(){
         filtVal[i] = tempVal;
     }
 
-    imu_in.ax = -filtVal[0];
+    imu_in.ax = filtVal[0];
     imu_in.ay = filtVal[1];
     imu_in.az = filtVal[2];
 
@@ -126,12 +126,8 @@ void imu::integrate_pos(){
 
     float refax, refay;
 
-    refax = imu_in.ax * cos(pos.rz.f) - imu_in.ay * sin(pos.rz.f);
-    refay = imu_in.ay * sin(pos.rz.f) + imu_in.ay * cos(pos.rz.f);
-
-
     // EXPERIMENTAL HIGH-PASS FILTER
-    /*static double a[2] = {0.998744939433549, -0.998744939433549};
+    static double a[2] = {0.998744939433549, -0.998744939433549};
     static double b[2] = {1, -0.997489878867098};
 
     static bool idx = 0;
@@ -143,14 +139,11 @@ void imu::integrate_pos(){
     float outpx = 0;
     float outpy = 0;
 
-    static float vNoFiltX = 0;
-    static float vNoFiltY = 0;
+    float aNoFiltX = imu_in.ax;
+    float aNoFiltY = imu_in.ay;
 
-    vNoFiltX += refax * period;
-    vNoFiltY += refay * period;
-
-    inFilx[idx] = vNoFiltX;
-    inFily[idx] = vNoFiltY;
+    inFilx[idx] = aNoFiltX;
+    inFily[idx] = aNoFiltY;
 
     outpx = outpx + inFilx[idx] * a[0];
     outpy = outpy + inFily[idx] * a[0];
@@ -161,19 +154,23 @@ void imu::integrate_pos(){
     outpy = outpy + inFily[idx] * a[1] - outFily * b[1];
 
     outFilx = outpx;
-    outFily = outpy;*/
+    outFily = outpy;
     // EXPERIMENTAL HIGH-PASS FILTER
+
+    refax = outpx;// * cos(pos.rz.f) - imu_in.ay * sin(pos.rz.f);
+    refay = outpy;// * sin(pos.rz.f) + imu_in.ay * cos(pos.rz.f);
 
     pos.vx.f += refax * period;
     pos.vy.f += refay * period;
 
     pos.x.f += pos.vx.f * period;
     pos.y.f += pos.vy.f * period;
+    //printf("%10f      %10f\n", imu_in.ax, refax);
 
     //printf("%10f      %10f      %10f\n", pos.x.f, pos.y.f, pos.rz.f);
 
     //printf("%10f      %10f\n", imu_in.gy, pos.ry.f);
-    printf("%10f      %10f      %10f\n", imu_in.ax, pos.vx.f, pos.x.f);
+    printf("%10f      %10f      %10f\n", refax, pos.vx.f, pos.x.f);
     /*printf("%10f      %10f      %10f\n", imu_in.ay, pos.vy.f, pos.y.f);
     printf("\n");*/
     
@@ -206,14 +203,14 @@ void imu::setup_imu(){
 
 
     buffer[0] = 29; // Accel DLPF
-    buffer[1] = 4;
+    buffer[1] = 6;
     length = 2;
     if(write(fd, buffer, length) != length){
         printf("Failed to write to the i2c bus.\n");
     }
 
     buffer[0] = 25; // Sample rate divider
-    buffer[1] = 1;
+    buffer[1] = 9;
     length = 2;
     if(write(fd, buffer, length) != length){
         printf("Failed to write to the i2c bus.\n");

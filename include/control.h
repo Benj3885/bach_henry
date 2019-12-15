@@ -57,11 +57,11 @@ struct kinematics{
 
     float turnPos[2][5] = {{0, M_PI/12, M_PI/12, M_PI/24, 0}, {-120, -120, -40, 0, -40}};
 
-    float off_set_coordc[2] = {-71.4,     0};
-    float off_set_coordf[2] = {-111.0875, -10.1117};
-    float off_set_coordb[2] = {-111.0875,  10.1117};
+    float off_set_coordc[2] = {-71.4502,     0};
+    float off_set_coordf[2] = {-111.1396, -10.0938};
+    float off_set_coordb[2] = {-111.1396,  10.0938};
 
-    float rfb = 246.2, rc = 206.4;
+    float rfb = 246.3, rc = 206.4;
     
 
     kinematics();
@@ -90,7 +90,7 @@ struct controller{
     //ids and offset
     //RIght side first from front to back
     char servo_id[6][3] = {{10, 9, 8}, {6, 5, 4}, {1, 2, 3}, {26, 25, 24}, {22, 21, 20}, {18, 17, 16}};
-    short int off_set[6][3] = {{1455, 1614, 1463}, {1538, 1500, 1518}, {1549, 1558, 1461}, {1538, 1469, 1479}, {1529, 1500, 1566}, {1552, 1517, 1471}};
+    short int off_set[6][3] = {{1455, 1614, 1463}, {1538, 1500, 1518}, {1549, 1558, 1461}, {1538, 1469, 1479}, {1529, 1500, 1566}, {1562, 1517, 1471}};
 
     short int off_set_climbing[6][3] = {{300, 0,0}, {220, 0, 0}, {200, 0, 0}, {-300, 0, 0}, {-220, 0, 0}, {-200, 0, 0}};
     float climb_modifier = 0.4;

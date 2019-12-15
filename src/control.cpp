@@ -351,8 +351,8 @@ kinematics::kinematics(){
     create_gait(pointPosb, part1rb, part2rb, part1lb, part2lb);
 
     create_turn_gait(turnPos, rc, -M_PI/2, M_PI/2, off_set_coordc, part1rrotc, part2rrotc, part1lrotc, part2lrotc);
-    create_turn_gait(turnPos, rfb, -0.8137, M_PI/4, off_set_coordf, part1rrotf, part2rrotf, part1lrotf, part2lrotf);
-    create_turn_gait(turnPos, rfb, -M_PI+0.8137, M_PI*3/4, off_set_coordb, part1rrotb, part2rrotb, part1lrotb, part2lrotb);
+    create_turn_gait(turnPos, rfb, -0.7444, M_PI/4, off_set_coordf, part1rrotf, part2rrotf, part1lrotf, part2lrotf);
+    create_turn_gait(turnPos, rfb, -M_PI+0.7444, M_PI*3/4, off_set_coordb, part1rrotb, part2rrotb, part1lrotb, part2lrotb);
 }
 
 void kinematics::create_gait(float pointPos[3][5], float part1r[3][RESOLUTION], float part2r[3][RESOLUTION],

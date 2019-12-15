@@ -3,7 +3,7 @@
 #include "motion.h"
 #include <mutex>
 
-#define IMU_RATE 500
+#define IMU_RATE 100
 
 struct imu_data{
     float ax, ay, az;
