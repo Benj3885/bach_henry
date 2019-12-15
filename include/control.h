@@ -4,7 +4,7 @@
 #include <sstream>
 #include <math.h>
 #include "motion.h"
-#include <mutex> // ADD THE STUFF
+#include <mutex>
 
 struct hex_command{
     int i = -1;
